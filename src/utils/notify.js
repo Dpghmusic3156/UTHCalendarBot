@@ -11,9 +11,9 @@ async function notifyDevs(bot, message, excludeUserId) {
     if (!config.users) return;
 
     for (const [userId, user] of Object.entries(config.users)) {
-        if (user.isDev && Number(userId) !== Number(excludeUserId)) {
+        if (user.isDev && String(userId) !== String(excludeUserId)) {
             await bot.telegram.sendMessage(
-                Number(userId),
+                userId,
                 message,
                 { parse_mode: 'Markdown' }
             ).catch(() => { });

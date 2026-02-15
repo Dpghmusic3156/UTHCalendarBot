@@ -5,7 +5,9 @@ module.exports = (bot) => {
         let text =
             `📖 *Danh sách lệnh:*\n\n` +
             `🔐 /login MSSV mật\\_khẩu — Đăng ký tài khoản Portal\n` +
-            `📅 /calendar — Chụp lịch học\n` +
+            `📅 /calendar — Xem lịch tuần hiện tại\n` +
+            `📅 /calendar +1 — Xem lịch tuần sau\n` +
+            `📅 /calendar +2 — Xem lịch 2 tuần nữa\n` +
             `🛠 /dev — Chế độ Dev\n` +
             `❓ /help — Xem hướng dẫn\n`;
 

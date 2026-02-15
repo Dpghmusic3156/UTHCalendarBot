@@ -5,6 +5,7 @@ const { Telegraf } = require('telegraf');
 const cron = require('node-cron');
 const portalScraper = require('./scraper/portal');
 const { getSubscribedUsers } = require('./utils/config');
+const zaloBot = require('./zalo/bot');
 
 if (!process.env.BOT_TOKEN) {
     console.error('❌ BOT_TOKEN is required.');
@@ -42,6 +43,11 @@ async function main() {
     console.log('🚀 Starting bot...');
     await portalScraper.init();
 
+    // Start Zalo Bot
+    if (process.env.ZALO_BOT_TOKEN) {
+        zaloBot.init(process.env.ZALO_BOT_TOKEN);
+    }
+
     await bot.telegram.setMyCommands([
         { command: 'calendar', description: '📅 Chụp lịch học' },
         { command: 'login', description: '🔐 Đăng ký tài khoản Portal' },
@@ -49,8 +55,14 @@ async function main() {
     ]);
     console.log('📋 Menu commands registered');
 
-    await bot.launch();
-    console.log('✅ Bot is running!');
+    try {
+        await bot.launch();
+        console.log('✅ Bot is running!');
+    } catch (err) {
+        console.error('⚠️ Telegram launch failed (likely conflict):', err.message);
+        console.log('⚠️ Continuing to run Zalo bot...');
+    }
+    // console.log('⚠️ Telegram bot disabled depending on debugging.');
 
     // Hourly cron: check per-user auto-login schedules
     cron.schedule('0 * * * *', async () => {

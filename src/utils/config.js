@@ -44,7 +44,7 @@ function getSubscribedUsers() {
     return Object.entries(config.users)
         .filter(([_, u]) => u.portalUsername)
         .map(([id, u]) => ({
-            chatId: Number(id),
+            chatId: String(id),
             cronHour: u.cronHour !== undefined && u.cronHour !== null ? u.cronHour : DEFAULT_CRON_HOUR,
             portalUsername: u.portalUsername,
             portalPassword: u.portalPassword,

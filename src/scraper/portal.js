@@ -164,9 +164,9 @@ class PortalScraper {
 
     // --- Queue system ---
 
-    captureCalendar(userId) {
+    captureCalendar(userId, weeks = 0) {
         return new Promise((resolve, reject) => {
-            this.queue.push({ userId, resolve, reject });
+            this.queue.push({ userId, weeks, resolve, reject });
             this.processQueue();
         });
     }
@@ -174,9 +174,9 @@ class PortalScraper {
     async processQueue() {
         if (this.isProcessing || this.queue.length === 0) return;
         this.isProcessing = true;
-        const { userId, resolve, reject } = this.queue.shift();
+        const { userId, weeks, resolve, reject } = this.queue.shift();
         try {
-            resolve(await this._doCapture(userId));
+            resolve(await this._doCapture(userId, weeks));
         } catch (err) {
             reject(err);
         } finally {
@@ -185,7 +185,7 @@ class PortalScraper {
         }
     }
 
-    async _doCapture(userId) {
+    async _doCapture(userId, weeks) {
         await this.init();
         const page = await this.browser.newPage();
 
@@ -215,6 +215,30 @@ class PortalScraper {
                 await page.goto(CALENDAR_URL, { waitUntil: 'networkidle2', timeout: 30000 });
             } else {
                 console.log(`⚡ [${userId}] Cookie valid`);
+            }
+
+            // Navigate Weeks
+            if (weeks > 0) {
+                console.log(`⏩ [${userId}] Navigating +${weeks} weeks...`);
+                for (let i = 0; i < weeks; i++) {
+                    const success = await page.evaluate(() => {
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        const nextBtn = buttons.find(b =>
+                            b.innerText.includes('>') ||
+                            (b.getAttribute('aria-label') && b.getAttribute('aria-label').toLowerCase().includes('next')) ||
+                            b.querySelector('[data-testid="ArrowForwardIcon"]') ||
+                            b.querySelector('svg[class*="ArrowForward"]')
+                        );
+                        if (nextBtn) {
+                            nextBtn.click();
+                            return true;
+                        }
+                        return false;
+                    });
+
+                    if (!success) console.warn("Could not navigate next week");
+                    await new Promise(r => setTimeout(r, 2000));
+                }
             }
 
             await new Promise((r) => setTimeout(r, 3000));
@@ -249,6 +273,151 @@ class PortalScraper {
 
             console.log(`📸 [${userId}] Screenshot captured`);
             return screenshot;
+        } finally {
+            await page.close();
+        }
+    }
+
+    async getCalendarText(userId, weeks = 0) {
+        await this.init();
+        const page = await this.browser.newPage();
+        try {
+            await page.setViewport({ width: 1920, height: 1080 });
+            await this.setupInterception(page);
+
+            const cookies = this.loadCookies(userId);
+            if (cookies && cookies.length > 0) await page.setCookie(...cookies);
+
+            await page.goto(CALENDAR_URL, { waitUntil: 'networkidle2', timeout: 30000 });
+
+            // Check login
+            if (this.isBaseUrl(page.url())) {
+                this.clearCookies(userId);
+                await this.login(page, userId);
+                await page.goto(CALENDAR_URL, { waitUntil: 'networkidle2', timeout: 30000 });
+            }
+
+            // Navigate Weeks
+            if (weeks > 0) {
+                console.log(`⏩ [${userId}] Navigating +${weeks} weeks...`);
+                for (let i = 0; i < weeks; i++) {
+                    const success = await page.evaluate(() => {
+                        // Try various selectors for "Next" button
+                        // 1. Button with ">" text
+                        // 2. Button with aria-label containing "next"
+                        // 3. SVG icon with "ArrowForward"
+                        const buttons = Array.from(document.querySelectorAll('button'));
+                        const nextBtn = buttons.find(b =>
+                            b.innerText.includes('>') ||
+                            (b.getAttribute('aria-label') && b.getAttribute('aria-label').toLowerCase().includes('next')) ||
+                            b.querySelector('[data-testid="ArrowForwardIcon"]') ||
+                            b.querySelector('svg[class*="ArrowForward"]')
+                        );
+                        if (nextBtn) {
+                            nextBtn.click();
+                            return true;
+                        }
+                        // Fallback: try last button in toolbar?
+                        // Assuming toolbar has [Prev] [Today] [Next]
+                        // We can't be sure without more info.
+                        return false;
+                    });
+
+                    if (!success) {
+                        return `⚠️ Không tìm thấy nút "Tuần sau". (Web có thể đã đổi)`;
+                    }
+                    await new Promise(r => setTimeout(r, 2000)); // Wait for AJAX load
+                }
+            }
+
+            // Extract Text
+            // Extract Text Structuredly
+            const text = await page.evaluate(() => {
+                try {
+                    const table = document.querySelector('table');
+                    if (!table) return "⚠️ Không tìm thấy bảng lịch học. (Có thể do web thay đổi)";
+
+                    // 1. Get Headers (Dates)
+                    const headerRow = table.querySelector('thead tr') || table.querySelector('tr');
+                    if (!headerRow) return "⚠️ Bảng lịch trống.";
+
+                    const headers = Array.from(headerRow.querySelectorAll('th, td'))
+                        .map(cell => cell.innerText.trim())
+                        .filter(text => text.includes('Thứ') || text.includes('Chủ nhật'));
+
+                    // 2. Get Data Rows
+                    const rows = Array.from(table.querySelectorAll('tbody tr'));
+                    const schedule = [];
+
+                    rows.forEach(row => {
+                        const cells = Array.from(row.querySelectorAll('td'));
+                        if (cells.length < 2) return;
+
+                        // Identify "Period" (Ca 1, Ca 2...)
+                        // Row 1 (Sáng): [Sáng, Ca 1, Mon, Tue...] -> Cells[1] is Period, Cells[2+] are Data
+                        // Row 2 (Ca 2): [Ca 2, Mon, Tue...] -> Cells[0] is Period, Cells[1+] are Data
+
+                        let period = '';
+                        let dataCells = [];
+
+                        const text0 = cells[0].innerText.trim();
+                        // Check if row has rowspan cell "Sáng/Chiều/Tối"
+                        if (['Sáng', 'Chiều', 'Tối'].includes(text0)) {
+                            period = cells[1] ? cells[1].innerText.trim() : 'Unknown';
+                            dataCells = cells.slice(2);
+                        } else {
+                            period = text0;
+                            dataCells = cells.slice(1);
+                        }
+
+                        // Map Data to Headers
+                        dataCells.forEach((cell, index) => {
+                            const content = cell.innerText.trim();
+                            if (content && headers[index]) {
+                                schedule.push({
+                                    day: headers[index],
+                                    period: period,
+                                    content: content.replace(/\n+/g, ' ; ')
+                                });
+                            }
+                        });
+                    });
+
+                    // 3. Format Output
+                    let dateInfo = "";
+                    const dateInput = document.querySelector('input[type="text"][value*="/"]');
+                    if (dateInput) {
+                        dateInfo = ` (Tuần: ${dateInput.value})`;
+                    } else {
+                        // Try finding any date-like text in toolbar
+                        const bodyText = document.body.innerText;
+                        const dateMatch = bodyText.match(/(\d{2}\/\d{2}\/\d{4})/);
+                        if (dateMatch) dateInfo = ` (Tuần: ${dateMatch[1]})`;
+                    }
+
+                    if (schedule.length === 0) return `📅 Lịch học${dateInfo}: **TRỐNG** (Không có lịch).`;
+
+                    // Group by Day
+                    const grouped = {};
+                    schedule.forEach(item => {
+                        if (!grouped[item.day]) grouped[item.day] = [];
+                        grouped[item.day].push(`+ ${item.period}: ${item.content}`);
+                    });
+
+                    // Join
+                    const scheduleText = Object.keys(grouped).map(day => {
+                        const niceDay = day.replace(/\n/g, ' ');
+                        return `📅 **${niceDay}**:\n${grouped[day].join('\n')}`;
+                    }).join('\n\n');
+
+                    return `📅 **Lịch học${dateInfo}:**\n\n${scheduleText}`;
+
+                } catch (err) {
+                    return `Lỗi parse lịch: ${err.message}`;
+                }
+            });
+
+            return text;
         } finally {
             await page.close();
         }

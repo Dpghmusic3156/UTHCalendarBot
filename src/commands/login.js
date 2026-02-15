@@ -17,6 +17,16 @@ module.exports = (bot) => {
         }
 
         const [username, ...passParts] = args;
+
+        // Validate MSSV (Must be numeric)
+        if (!/^\d+$/.test(username)) {
+            return ctx.reply(
+                `⚠️ **MSSV không hợp lệ**\n` +
+                `Vui lòng chỉ nhập số (Ví dụ: 052206008888).`,
+                { parse_mode: 'Markdown' }
+            );
+        }
+
         const password = passParts.join(' ');
 
         // Delete message containing credentials immediately

@@ -19,41 +19,59 @@ module.exports = (bot) => {
             );
         }
 
-        const statusMsg = await ctx.reply('⏳ Đang chụp lịch học, vui lòng chờ...');
+        const rawText = ctx.message.text || '';
+        const args = rawText.split(' ').slice(1);
+        let weekOffset = 0;
+
+        if (args.length > 0) {
+            const num = parseInt(args[0].replace('+', ''), 10);
+            if (!isNaN(num)) weekOffset = num;
+        }
+
+        const msgText = weekOffset === 0
+            ? '⏳ Đang chụp lịch học (Tuần này)...'
+            : `⏳ Đang chụp lịch học (+${weekOffset} tuần)...`;
+
+        const statusMsg = await ctx.reply(msgText);
 
         try {
             const startTime = Date.now();
-            const screenshot = await portalScraper.captureCalendar(userId);
+            const screenshot = await portalScraper.captureCalendar(userId, weekOffset);
             const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
 
-            // Save screenshot per user
+            // Save screenshot per user (optional, but good for debug)
             if (!fs.existsSync(SCREENSHOT_DIR)) fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
-            const screenshotPath = path.join(SCREENSHOT_DIR, `${userId}.png`);
+            const screenshotPath = path.join(SCREENSHOT_DIR, `${userId}_${Date.now()}.png`);
             fs.writeFileSync(screenshotPath, screenshot);
+
+            const caption = weekOffset === 0
+                ? `📅 Lịch học: Tuần hiện tại\n⏱ ${elapsed}s`
+                : `📅 Lịch học: Tuần +${weekOffset}\n⏱ ${elapsed}s`;
 
             await ctx.replyWithPhoto(
                 { source: screenshotPath },
-                { caption: `📅 Lịch học Portal UTH\n⏱ Thời gian: ${elapsed}s` }
+                { caption: caption }
             );
+
+            // Cleanup
+            try { fs.unlinkSync(screenshotPath); } catch (e) { }
 
             await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => { });
 
             // Notify devs
-            const name = ctx.from.first_name || '';
-            const userConfig = getUser(userId);
-            const displayName = userConfig.displayName || creds.username;
-            await notifyDevs(bot, `📅 *Lịch học*\n👤 ${name} (${displayName})\n⏱ ${elapsed}s`, userId);
+            // const name = ctx.from.first_name || '';
+            // const userConfig = getUser(userId);
+            // const displayName = userConfig.displayName || creds.username;
+            // await notifyDevs(bot, `📅 *Lịch học Telegram*\n👤 ${name} (${displayName})\n⏱ ${elapsed}s`, userId);
+
         } catch (err) {
             console.error(`❌ [${userId}] Calendar capture failed:`, err);
-
-            await ctx.telegram
-                .editMessageText(
-                    ctx.chat.id,
-                    statusMsg.message_id,
-                    undefined,
-                    `❌ Lỗi: ${err.message}\n\nVui lòng thử lại sau.`
-                )
-                .catch(() => { });
+            await ctx.telegram.editMessageText(
+                ctx.chat.id,
+                statusMsg.message_id,
+                undefined,
+                `❌ Lỗi: ${err.message}`
+            ).catch(() => { });
         }
     });
 };
