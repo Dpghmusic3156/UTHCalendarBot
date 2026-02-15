@@ -1,11 +1,22 @@
+const { isDev } = require('../utils/auth');
+
 module.exports = (bot) => {
     bot.help((ctx) => {
-        return ctx.reply(
+        let text =
             `📖 *Danh sách lệnh:*\n\n` +
-            `📅 /calendar — Chụp lịch học từ Portal UTH\n` +
-            `❓ /help — Xem hướng dẫn\n\n` +
-            `⚠️ *Lưu ý:* Bot sẽ đăng nhập portal, nếu bạn đang online trên portal thì session sẽ bị đá ra.`,
-            { parse_mode: 'Markdown' }
-        );
+            `🔐 /login MSSV mật\\_khẩu — Đăng ký tài khoản Portal\n` +
+            `📅 /calendar — Chụp lịch học\n` +
+            `🛠 /dev — Chế độ Dev\n` +
+            `❓ /help — Xem hướng dẫn\n`;
+
+        if (isDev(ctx.from.id)) {
+            text += `\n🔧 *Lệnh Dev:*\n` +
+                `⏰ /settime — Đặt giờ auto-login\n` +
+                `🔄 /restart — Restart bot\n`;
+        }
+
+        text += `\n⚠️ Khi bot đăng nhập portal, session trên thiết bị khác sẽ bị đá ra.`;
+
+        return ctx.reply(text, { parse_mode: 'Markdown' });
     });
 };
