@@ -219,7 +219,29 @@ class PortalScraper {
 
             await new Promise((r) => setTimeout(r, 3000));
 
-            const screenshot = await page.screenshot({ type: 'png', fullPage: true });
+            // Try to screenshot just the calendar table element
+            let screenshot;
+            const calendarEl = await page.$('.MuiPaper-root, .MuiTableContainer-root, [class*="calendar"], table').catch(() => null);
+            if (calendarEl) {
+                // Add small padding by getting bounding box and clipping
+                const box = await calendarEl.boundingBox();
+                if (box) {
+                    const pad = 16;
+                    screenshot = await page.screenshot({
+                        type: 'png',
+                        clip: {
+                            x: Math.max(0, box.x - pad),
+                            y: Math.max(0, box.y - pad),
+                            width: box.width + pad * 2,
+                            height: box.height + pad * 2,
+                        },
+                    });
+                } else {
+                    screenshot = await page.screenshot({ type: 'png', fullPage: true });
+                }
+            } else {
+                screenshot = await page.screenshot({ type: 'png', fullPage: true });
+            }
 
             // Update cookies
             const newCookies = await page.cookies();
