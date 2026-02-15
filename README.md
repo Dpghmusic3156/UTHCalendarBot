@@ -1,158 +1,80 @@
-# 🤖 Portal UTH Telegram Bot
+# Portal UTH Bot (Zalo & Telegram) 🤖📅
 
-Bot Telegram tự động chụp lịch học từ [portal.ut.edu.vn](https://portal.ut.edu.vn) và gửi ảnh về cho bạn. Hỗ trợ **nhiều người dùng**, mỗi người tài khoản portal riêng.
+Bot tự động đăng nhập Portal UTH (ĐH Giao Thông Vận Tải TP.HCM) để lấy Lịch Học và gửi thông báo qua Zalo / Telegram.
 
-## ✨ Tính năng
+## 🚀 Tính Năng
 
-- 🔐 **Multi-user** — Mỗi user tự đăng ký tài khoản Portal qua `/login`
-- 📅 **Lịch học** — Chụp lịch học cá nhân qua `/calendar`
-- ✅ **Xác thực** — Kiểm tra tài khoản thật trước khi lưu, hiển thị tên sinh viên
-- ⏰ **Auto-login** — Tự động đăng nhập lúc 4:00 AM UTC+7 mỗi ngày (tất cả user)
-- 🛠 **Dev mode** — Lệnh ẩn `/dev`, `/settime`, `/restart` cho admin
-- 📢 **Thông báo Dev** — Dev nhận thông báo khi có user đăng nhập mới hoặc chụp lịch
-- ⚡ Tối ưu tốc độ: persistent browser, cookie reuse, resource blocking
-- 🔄 Tự login lại khi session hết hạn
-- 🛡 Queue requests tránh xung đột
-- 🔁 PM2 auto-restart 24/7
+| Tính năng        |                 Zalo Bot                 |           Telegram Bot            |
+| :--------------- | :--------------------------------------: | :-------------------------------: |
+| **Đăng nhập**    |      `/login` (Tự động lưu Session)      |             `/login`              |
+| **Xem Lịch Học** |         `/calendar` (Ảnh + Text)         |     `/calendar` (Ảnh Full HD)     |
+| **Xem Tuần Sau** |    `/calendar +1`, `/calendar +2`...     | `/calendar +1`, `/calendar +2`... |
+| **Định dạng**    | Ảnh (qua Proxy `tmpfiles`) + Text backup |        Ảnh (Gửi trực tiếp)        |
+| **Bảo mật**      |       Check MSSV (số), ẩn Password       |     Check MSSV, xóa msg Pass      |
+| **Auto-Login**   |          Tự động refresh cookie          |      Tự động refresh cookie       |
 
-## 📋 Danh sách lệnh
+## 🛠️ Cài Đặt (Setup)
 
-### Lệnh công khai
-
-| Lệnh                   | Mô tả                                      |
-| ---------------------- | ------------------------------------------ |
-| `/start`               | Giới thiệu bot                             |
-| `/login MSSV mật_khẩu` | Đăng ký tài khoản Portal (tự xóa tin nhắn) |
-| `/calendar`            | Chụp lịch học                              |
-| `/help`                | Xem hướng dẫn                              |
-
-### Lệnh Dev (ẩn, cần `/dev` xác thực)
-
-| Lệnh             | Mô tả                                 |
-| ---------------- | ------------------------------------- |
-| `/dev <devcode>` | Xác thực chế độ Dev                   |
-| `/dev off`       | Tắt chế độ Dev                        |
-| `/settime <giờ>` | Đổi giờ auto-login (0-23, mặc định 4) |
-| `/restart`       | Restart bot (cần PM2)                 |
-
-## 📁 Cấu trúc project
-
-```
-portal-uth-telegram-bot/
-├── src/
-│   ├── bot.js              # Entry point, cron scheduler
-│   ├── commands/
-│   │   ├── start.js        # Welcome message
-│   │   ├── help.js         # Danh sách lệnh (dynamic theo dev mode)
-│   │   ├── login.js        # Đăng ký + xác thực tài khoản Portal
-│   │   ├── calendar.js     # Chụp lịch học
-│   │   ├── settime.js      # Đổi giờ auto-login (dev-only)
-│   │   ├── dev.js          # Xác thực / bật tắt dev mode
-│   │   └── restart.js      # Restart bot (dev-only)
-│   ├── scraper/
-│   │   └── portal.js       # Puppeteer scraper (multi-user)
-│   └── utils/
-│       ├── config.js       # Per-user config (credentials, settings)
-│       ├── auth.js         # Dev auth (persistent)
-│       └── notify.js       # Thông báo cho dev users
-├── data/                   # Auto-generated, nằm trong .gitignore
-│   ├── config.json         # User settings & credentials
-│   ├── cookies/            # Per-user cookies (cookies/<userId>.json)
-│   └── screenshots/        # Per-user screenshots
-├── ecosystem.config.js     # PM2 config
-├── .env.example
-├── .gitignore
-└── package.json
-```
-
-## 🚀 Cài đặt
-
-### 1. Clone & cài dependencies
+### 1. Clone & Install
 
 ```bash
-git clone <repo-url>
-cd portal-uth-telegram-bot
+git clone https://github.com/your-repo/portal-uth-bot.git
+cd portal-uth-bot
 npm install
 ```
 
-### 2. Cấu hình
+### 2. Cấu hình `.env`
 
-```bash
-cp .env.example .env
-```
+Tạo file `.env` từ `.env.example`:
 
-Sửa file `.env`:
+```ini
+# --- Zalo Configuration ---
+ZALO_BOT_TOKEN=your_zalo_token
+ZALO_OA_ID=your_oa_id
 
-```env
+# --- Telegram Configuration ---
 BOT_TOKEN=your_telegram_bot_token
-DEV_CODE=your_secret_dev_code
+
+# --- Portal Credentials (Optional helper) ---
+PORTAL_USER=
+PORTAL_PASS=
 ```
 
-> 💡 Lấy `BOT_TOKEN` bằng cách chat với [@BotFather](https://t.me/BotFather) trên Telegram
->
-> ℹ️ Tài khoản Portal **không cần cấu hình ở đây** — mỗi user tự đăng ký qua `/login`
-
-### 3. Chạy
+### 3. Chạy Server
 
 ```bash
-# Development
+# Chạy chế độ development
 npm start
 
-# Production (PM2)
-npm run pm2:start
+# Chạy production (khuyên dùng PM2)
+npm install -g pm2
+pm2 start src/bot.js --name "uth-bot"
 ```
 
-## 🖥 Deploy lên VPS (chạy 24/7)
+## 📖 Hướng Dẫn Sử Dụng
 
-### Bước 1: Cài đặt môi trường
+### Zalo
 
-```bash
-# Ubuntu/Debian
-sudo apt update
-sudo apt install -y nodejs npm
+1.  **Quan tâm**.
+2.  Gõ `/login` -> Hệ thống sẽ hỏi **MSSV** (chỉ nhập số) -> **Mật khẩu**.
+3.  Sau khi đăng nhập thành công, gõ `/calendar` để xem lịch tuần này.
+4.  Gõ `/calendar +1` để xem lịch tuần sau.
 
-# Cài Chromium cho Puppeteer
-sudo apt install -y chromium-browser
+### Telegram
 
-# Cài PM2 global
-sudo npm install -g pm2
-```
+1.  Start bot `/start`.
+2.  Gõ `/login <MSSV> <Mật khẩu>` (Tin nhắn sẽ tự xóa để bảo mật).
+3.  Gõ `/calendar` hoặc `/calendar +1` để nhận ảnh lịch học.
 
-### Bước 2: Upload & chạy
+## ⚙️ Cơ Chế Hoạt Động
 
-```bash
-cd /home/user/portal-uth-bot
-npm install
-cp .env.example .env
-nano .env  # điền BOT_TOKEN và DEV_CODE
-
-# Khởi động
-npm run pm2:start
-
-# PM2 tự khởi động khi reboot
-pm2 startup
-pm2 save
-```
-
-### Các lệnh PM2
-
-```bash
-pm2 status                 # Xem trạng thái
-pm2 logs portal-uth-bot    # Xem logs
-pm2 restart portal-uth-bot # Restart
-pm2 stop portal-uth-bot    # Dừng
-pm2 monit                  # Monitor CPU/RAM
-```
-
-## 🔒 Bảo mật
-
-- Tin nhắn `/login` chứa mật khẩu **tự động bị xóa** khỏi chat
-- Mật khẩu lưu trong `data/config.json` — **bảo mật file này trên VPS**
-- Dev mode yêu cầu `DEV_CODE` từ `.env`, persistent qua restart
-- Thư mục `data/` nằm trong `.gitignore`
+- **Scraper:** Sử dụng `Puppeteer` để điều khiển Chrome Headless, đăng nhập vào `portal.ut.edu.vn`.
+- **Zalo Photo:** Do cơ chế API, ảnh được upload lên `tmpfiles.org` trước khi gửi link sang Zalo.
+- **Telegram Photo:** Gửi trực tiếp Buffer từ RAM (nhanh & bảo mật hơn).
+- **Cookies:** Cookie được lưu tại `data/cookies/`, tự động gia hạn khi hết hạn.
 
 ## ⚠️ Lưu ý
 
-- Portal UTH chỉ cho phép **1 session/tài khoản**. Khi bot login, session trên thiết bị khác sẽ bị đá ra.
-- Mỗi user có **cookies riêng**, bot chỉ login lại khi session hết hạn.
-- Auto-login mặc định lúc **4:00 AM UTC+7** cho tất cả user, dev có thể đổi qua `/settime`.
+- Không chia sẻ file `data/cookies/*.json` cho người lạ.
+- Nên chạy trên VPS (Ubuntu/Windows) để bot online 24/7.
+- Nếu Zalo báo lỗi `Upload failed`, hãy kiểm tra kết nối tới `tmpfiles.org`.
