@@ -1,0 +1,27 @@
+{
+  "name": "portal-uth-telegram-bot",
+  "version": "1.0.0",
+  "description": "Telegram bot chụp lịch học từ portal.ut.edu.vn",
+  "main": "src/bot.js",
+  "scripts": {
+    "start": "node src/bot.js",
+    "dev": "npx nodemon --ignore data/ src/bot.js",
+    "pm2:start": "npx pm2 start ecosystem.config.js",
+    "pm2:stop": "npx pm2 stop portal-uth-bot",
+    "pm2:restart": "npx pm2 restart portal-uth-bot",
+    "pm2:status": "npx pm2 status",
+    "pm2:logs": "npx pm2 logs portal-uth-bot"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "portal",
+    "uth"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "puppeteer": "^24.37.3",
+    "telegraf": "^4.16.3"
+  }
+}
